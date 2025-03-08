@@ -28,6 +28,20 @@ import {
   Radar,
 } from 'recharts';
 
+// Define props type
+interface DashboardProps {
+  metrics: {
+    activeAgents: number;
+    totalCalls: number;
+    avgSentiment: number;
+    complianceScore: number;
+    avgHandleTime: string;
+    resolutionRate: number;
+  };
+  timeRange: string;
+  setTimeRange: (value: string) => void;
+}
+
 // Mock Data
 const topQueries = [
   { query: "Password reset process", count: 245, category: "Account Access", trend: 'up' },
@@ -80,7 +94,14 @@ const radarData = [
 ];
 
 // StatCard Component
-function StatCard({ title, value, icon, trend, color, linkTo }) {
+function StatCard({ title, value, icon, trend, color, linkTo }: {
+  title: string;
+  value: string;
+  icon: React.ReactNode;
+  trend: string;
+  color: string;
+  linkTo: string;
+}) {
   return (
     <Link to={linkTo} className={`bg-white rounded-lg shadow-md p-6 block transform transition-transform hover:scale-105 hover:shadow-lg ${color}`}>
       <div className="flex items-center justify-between">
@@ -103,7 +124,12 @@ function StatCard({ title, value, icon, trend, color, linkTo }) {
 }
 
 // CallCard Component
-function CallCard({ agentName, duration, sentiment, status }) {
+function CallCard({ agentName, duration, sentiment, status }: {
+  agentName: string;
+  duration: string;
+  sentiment: number;
+  status: string;
+}) {
   return (
     <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg transform transition-transform hover:scale-105">
       <div className="flex items-center space-x-4">
@@ -124,7 +150,12 @@ function CallCard({ agentName, duration, sentiment, status }) {
 }
 
 // AlertCard Component
-function AlertCard({ type, message, agent, time }) {
+function AlertCard({ type, message, agent, time }: {
+  type: string;
+  message: string;
+  agent: string;
+  time: string;
+}) {
   return (
     <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg transform transition-transform hover:scale-105">
       <div className="flex items-center space-x-4">
@@ -142,7 +173,7 @@ function AlertCard({ type, message, agent, time }) {
   );
 }
 
-const Dashboard = ({ metrics, timeRange, setTimeRange }) => {
+const Dashboard: React.FC<DashboardProps> = ({ metrics, timeRange, setTimeRange }) => {
   return (
     <div className="space-y-6">
       {/* Analytics Summary */}

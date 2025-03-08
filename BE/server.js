@@ -12,10 +12,14 @@ const app = express();
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
-app.use(cors());
+app.use(cors({
+  origin: 'http://localhost:5173', // Frontend URL
+  credentials: true,
+}));
 app.use(helmet());
 
 // Routes
+app.use("/api/auth", require("./routes/authRoutes"));
 app.use("/api/calls", require("./routes/callRoutes"));
 app.use("/api/agents", require("./routes/agentRoutes"));
 app.use("/api/alerts", require("./routes/alertRoutes"));

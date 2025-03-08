@@ -5,14 +5,14 @@ const Call = require("../models/Call");
 // @route   GET api/calls
 // @desc    Get all calls
 // @access  Public
-router.get("/", async (req, res) => {
-  try {
-    const calls = await Call.find();
-    res.json(calls);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
+// router.get("/", async (req, res) => {
+//   try {
+//     const calls = await Call.find();
+//     res.json(calls);
+//   } catch (err) {
+//     res.status(500).json({ message: err.message });
+//   }
+// });
 
 // @route   POST api/calls
 // @desc    Add a new call
@@ -62,5 +62,7 @@ router.delete("/:id", async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 });
-
+router.get("/", (req, res) => {
+  res.send("Calls route");
+});
 module.exports = router;
