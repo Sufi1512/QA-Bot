@@ -201,7 +201,7 @@ const AppLayout = () => {
           <div className="flex items-center justify-between p-4 border-b">
             <div className="flex items-center space-x-2">
               <Headphones className="h-6 w-6 text-indigo-600" />
-              <h2 className="text-xl font-bold text-gray-900">QA Dashboard</h2>
+              <h2 className="text-xl font-bold text-gray-900">Q A Dashboard</h2>
             </div>
             <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-gray-500 hover:text-gray-700">
               <X className="h-6 w-6" />
