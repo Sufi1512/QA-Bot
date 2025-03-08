@@ -18,8 +18,8 @@ app.use(helmet());
 // Routes
 app.use("/api/calls", require("./routes/callRoutes"));
 app.use("/api/agents", require("./routes/agentRoutes"));
-// app.use("/api/alerts", require("./routes/alertRoutes"));
-// app.use("/api/queries", require("./routes/queryRoutes"));
+app.use("/api/alerts", require("./routes/alertRoutes"));
+app.use("/api/queries", require("./routes/queryRoutes"));
 
 // Health Check
 app.get("/api/health", (req, res) => {

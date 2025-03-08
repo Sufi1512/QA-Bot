@@ -48,6 +48,38 @@ const agentSchema = new Schema(
         resolutionRate: Number,
       },
     ],
+    score: {
+      type: Number,
+    },
+    calls: {
+      type: Number,
+    },
+    callDuration: {
+      type: Number,
+    },
+    controls: [
+      {
+        type: String,
+        timestamp: Date,
+      },
+    ],
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
+    agentInstructions: {
+      type: String,
+    },
+    companyId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Company",
+    },
+    compliance: {
+      type: Number,
+    },
+    avgTime: {
+      type: Number,
+    },
   },
   { timestamps: true }
 );

@@ -33,6 +33,10 @@ const querySchema = new Schema({
     type: Date,
     default: Date.now,
   },
+  companyId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Company",
+  },
 });
 
 module.exports = mongoose.model("Query", querySchema);

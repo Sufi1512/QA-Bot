@@ -37,6 +37,10 @@ const alertSchema = new Schema({
   callId: {
     type: String,
   },
+  companyId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Company",
+  },
   createdAt: {
     type: Date,
     default: Date.now,

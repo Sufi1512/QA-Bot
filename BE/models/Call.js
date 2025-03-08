@@ -49,6 +49,10 @@ const callSchema = new Schema(
       topics: [String],
       responseTime: Number,
     },
+    companyId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Company",
+    },
   },
   { timestamps: true }
 );
