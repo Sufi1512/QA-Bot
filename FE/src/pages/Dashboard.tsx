@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Users,
@@ -9,8 +9,8 @@ import {
   ThumbsUp,
   HelpCircle,
   MessageCircle,
-  AlertOctagon,
   AlertTriangle,
+  AlertOctagon,
 } from 'lucide-react';
 import {
   LineChart,
@@ -28,82 +28,23 @@ import {
   Radar,
 } from 'recharts';
 
-// Define props type
-interface DashboardProps {
-  metrics: {
-    activeAgents: number;
-    totalCalls: number;
-    avgSentiment: number;
-    complianceScore: number;
-    avgHandleTime: string;
-    resolutionRate: number;
-  };
-  timeRange: string;
-  setTimeRange: (value: string) => void;
-}
-
-// Mock Data
-const topQueries = [
-  { query: "Password reset process", count: 245, category: "Account Access", trend: 'up' },
-  { query: "Billing cycle questions", count: 198, category: "Billing", trend: 'stable' },
-  { query: "Service upgrade options", count: 156, category: "Product", trend: 'up' },
-  { query: "Mobile app sync issues", count: 134, category: "Technical", trend: 'down' },
-  { query: "Subscription cancellation", count: 112, category: "Account Management", trend: 'stable' },
-];
-
-const customerTopics = [
-  { topic: "Account Security", percentage: 35, sentiment: 'neutral' },
-  { topic: "Mobile Experience", percentage: 28, sentiment: 'negative' },
-  { topic: "Customer Support", percentage: 22, sentiment: 'positive' },
-  { topic: "Product Features", percentage: 15, sentiment: 'positive' },
-];
-
-const urgentIssues = [
-  { issue: "Mobile App Crash", affected: 127, status: "Under Investigation" },
-  { issue: "Payment Gateway Error", affected: 89, status: "Resolved" },
-  { issue: "Login Authentication", affected: 45, status: "In Progress" },
-];
-
-const sentimentData = [
-  { time: '0:00', sentiment: 50, baseline: 50 },
-  { time: '1:00', sentiment: 45, baseline: 50 },
-  { time: '2:00', sentiment: 30, baseline: 50 },
-  { time: '3:00', sentiment: 20, baseline: 50 },
-  { time: '4:00', sentiment: 35, baseline: 50 },
-  { time: '5:00', sentiment: 60, baseline: 50 },
-  { time: '6:00', sentiment: 75, baseline: 50 },
-];
-
-const agentPerformance = {
-  name: "John Smith",
-  sentimentScore: 85,
-  resolutionRate: 92,
-  complianceScore: 98,
-  empathyScore: 88,
-  clarityScore: 90,
-  efficiency: 87,
-};
-
-const radarData = [
-  { metric: 'Sentiment', value: agentPerformance.sentimentScore },
-  { metric: 'Resolution', value: agentPerformance.resolutionRate },
-  { metric: 'Compliance', value: agentPerformance.complianceScore },
-  { metric: 'Empathy', value: agentPerformance.empathyScore },
-  { metric: 'Clarity', value: agentPerformance.clarityScore },
-  { metric: 'Efficiency', value: agentPerformance.efficiency },
-];
-
-// StatCard Component
-function StatCard({ title, value, icon, trend, color, linkTo }: {
+// Define props interface for StatCard
+interface StatCardProps {
   title: string;
   value: string;
   icon: React.ReactNode;
   trend: string;
   color: string;
   linkTo: string;
-}) {
+}
+
+// StatCard Component
+function StatCard({ title, value, icon, trend, color, linkTo }: StatCardProps) {
   return (
-    <Link to={linkTo} className={`bg-white rounded-lg shadow-md p-6 block transform transition-transform hover:scale-105 hover:shadow-lg ${color}`}>
+    <Link
+      to={linkTo}
+      className={`bg-white rounded-lg shadow-md p-6 block transform transition-transform hover:scale-105 hover:shadow-lg ${color}`}
+    >
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-3">
           {icon}
@@ -173,7 +114,120 @@ function AlertCard({ type, message, agent, time }: {
   );
 }
 
+interface DashboardProps {
+  metrics: {
+    activeAgents: number;
+    totalCalls: number;
+    avgSentiment: number;
+    complianceScore: number;
+    avgHandleTime: string;
+    resolutionRate: number;
+  };
+  timeRange: string;
+  setTimeRange: (value: string) => void;
+}
+
 const Dashboard: React.FC<DashboardProps> = ({ metrics, timeRange, setTimeRange }) => {
+  const [topQueries, setTopQueries] = useState<{ query: string; category: string; count: number; trend: string; }[]>([]);
+  const [customerTopics, setCustomerTopics] = useState<{ topic: string; sentiment: string; percentage: number; }[]>([]);
+  const [urgentIssues, setUrgentIssues] = useState<{ issue: string; affected: number; status: string; }[]>([]);
+  const [sentimentData, setSentimentData] = useState<{ time: string; sentiment: number; baseline: number; }[]>([]);
+  const [agentPerformance, setAgentPerformance] = useState<{
+    sentimentScore: number;
+    resolutionRate: number;
+    complianceScore: number;
+    empathyScore: number;
+    clarityScore: number;
+    efficiency: number;
+  } | null>(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [queriesRes, topicsRes, issuesRes, sentimentRes, agentRes] = await Promise.all([
+          fetch("/api/queries"),
+          fetch("/api/topics"),
+          fetch("/api/issues"),
+          fetch("/api/sentiment"),
+          fetch("/api/agents/performance"),
+        ]);
+  
+        // Parse each response with error handling
+        let queriesData, topicsData, issuesData, sentimentData, agentData;
+  
+        try {
+          queriesData = await queriesRes.json();
+        } catch (error) {
+          console.error("Error parsing queries data:", error);
+          queriesData = [];
+        }
+  
+        try {
+          topicsData = await topicsRes.json();
+        } catch (error) {
+          console.error("Error parsing topics data:", error);
+          topicsData = [];
+        }
+  
+        try {
+          issuesData = await issuesRes.json();
+        } catch (error) {
+          console.error("Error parsing issues data:", error);
+          issuesData = [];
+        }
+  
+        try {
+          sentimentData = await sentimentRes.json();
+        } catch (error) {
+          console.error("Error parsing sentiment data:", error);
+          sentimentData = [];
+        }
+  
+        try {
+          agentData = await agentRes.json();
+        } catch (error) {
+          console.error("Error parsing agent performance data:", error);
+          agentData = {
+            sentimentScore: 0,
+            resolutionRate: 0,
+            complianceScore: 0,
+            empathyScore: 0,
+            clarityScore: 0,
+            efficiency: 0,
+          };
+        }
+  
+        setTopQueries(queriesData);
+        setCustomerTopics(topicsData);
+        setUrgentIssues(issuesData);
+        setSentimentData(sentimentData);
+        setAgentPerformance({
+          sentimentScore: agentData.sentimentScore,
+          resolutionRate: agentData.resolutionRate,
+          complianceScore: agentData.complianceScore,
+          empathyScore: agentData.empathyScore,
+          clarityScore: agentData.clarityScore,
+          efficiency: agentData.efficiency,
+        });
+      } catch (err) {
+        console.error(err);
+      }
+    };
+  
+    fetchData();
+  }, []);
+
+  if (!agentPerformance) return <div>Loading...</div>;
+
+  const radarData = [
+    { metric: 'Sentiment', value: agentPerformance.sentimentScore },
+    { metric: 'Resolution', value: agentPerformance.resolutionRate },
+    { metric: 'Compliance', value: agentPerformance.complianceScore },
+    { metric: 'Empathy', value: agentPerformance.empathyScore },
+    { metric: 'Clarity', value: agentPerformance.clarityScore },
+    { metric: 'Efficiency', value: agentPerformance.efficiency },
+  ];
+
   return (
     <div className="space-y-6">
       {/* Analytics Summary */}
