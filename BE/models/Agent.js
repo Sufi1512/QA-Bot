@@ -59,8 +59,8 @@ const agentSchema = new Schema(
     },
     controls: [
       {
-        type: String,
-        timestamp: Date,
+        type: { type: String },
+        timestamp: { type: Date },
       },
     ],
     isActive: {
