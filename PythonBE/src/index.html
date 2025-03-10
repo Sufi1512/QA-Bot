@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Audio Streaming (Test)</title>
+</head>
+<body>
+    <h2>Live Audio Streaming to WebSocket</h2>
+    <button onclick="startRecording()">🎤 Start Recording</button>
+    <button onclick="stopRecording()">🛑 Stop Recording</button>
+    <h3>Results:</h3>
+    <pre id="results"></pre>
+
+    <script>
+        let websocket;
+        let mediaRecorder;
+
+        function startRecording() {
+            // ✅ Get user audio
+            navigator.mediaDevices.getUserMedia({ audio: true })
+                .then(stream => {
+                    // ✅ Open WebSocket connection
+                    websocket = new WebSocket("ws://localhost:8000/ws/audio");
+
+                    websocket.onopen = () => {
+                        console.log("✅ WebSocket connected");
+                    };
+
+                    websocket.onmessage = (event) => {
+                        const result = JSON.parse(event.data);
+                        console.log("📩 Received from server:", result);
+                        document.getElementById('results').textContent = JSON.stringify(result, null, 2);
+                    };
+
+                    websocket.onclose = () => {
+                        console.log("❌ WebSocket closed");
+                    };
+
+                    // ✅ Start recording audio
+                    mediaRecorder = new MediaRecorder(stream, {
+                        mimeType: 'audio/webm'  // WebM format for audio bytes
+                    });
+
+                    mediaRecorder.start();
+                    console.log("🎤 Recording started...");
+
+                    // ✅ Send audio data as bytes continuously
+                    mediaRecorder.ondataavailable = async (event) => {
+                        console.log("🎤 Sending audio bytes...");
+                        if (websocket.readyState === WebSocket.OPEN) {
+                            const audioBlob = event.data;
+                            const arrayBuffer = await audioBlob.arrayBuffer();
+                            websocket.send(arrayBuffer);
+                        } else {
+                            console.warn("⚠️ WebSocket not ready");
+                        }
+                    };
+
+                    mediaRecorder.onstop = () => {
+                        console.log("🛑 Recording stopped");
+                        websocket.close();
+                    };
+                })
+                .catch(err => console.error("❌ Error accessing microphone:", err));
+        }
+
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state === "recording") {
+                mediaRecorder.stop();
+            }
+        }
+    </script>
+</body>
+</html>

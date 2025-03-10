@@ -1,0 +1,1 @@
+ALLOWED_AUDIO_FORMATS = {'audio/mpeg': ".mp3", 'audio/wav': ".wav", 'audio/ogg': ".ogg"}
