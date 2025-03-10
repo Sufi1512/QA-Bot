@@ -4,12 +4,24 @@ const router = express.Router();
 const Call = require("../models/Call");
 
 // Get all calls
-router.get("/", async (req, res) => {
+router.get("/", async (req, res, next) => {
   try {
-    const calls = await Call.find();
-    res.json(calls);
+    const calls = await Call.find().sort({ startTime: -1 }).lean().exec();
+
+    const sanitizedCalls = calls.map((call) => ({
+      ...call,
+      startTime: call.startTime?.toISOString() || null,
+      endTime: call.endTime?.toISOString() || null,
+      metadata: {
+        keywords: call.metadata?.keywords || [],
+        topics: call.metadata?.topics || [],
+        responseTime: call.metadata?.responseTime || 0,
+      },
+    }));
+
+    res.json(sanitizedCalls);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    next(err);
   }
 });
 
