@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { LineChart, Line } from 'recharts';
 import BackButton from '../components/BackButton';
+import axios from 'axios';
 
 // Mock Data for Agents (based on agentSchema)
 const mockAgents = [
@@ -25,6 +26,7 @@ const mockAgents = [
       { date: '2025-03-04', sentimentScore: 83, complianceScore: 93, resolutionRate: 87 },
       { date: '2025-03-05', sentimentScore: 86, complianceScore: 96, resolutionRate: 91 },
     ],
+    audioAnalyses: [],
   },
   {
     agentId: 'agent002',
@@ -46,6 +48,7 @@ const mockAgents = [
       { date: '2025-03-04', sentimentScore: 77, complianceScore: 90, resolutionRate: 83 },
       { date: '2025-03-05', sentimentScore: 79, complianceScore: 93, resolutionRate: 86 },
     ],
+    audioAnalyses: [],
   },
   {
     agentId: 'agent003',
@@ -67,6 +70,7 @@ const mockAgents = [
       { date: '2025-03-04', sentimentScore: 71, complianceScore: 87, resolutionRate: 78 },
       { date: '2025-03-05', sentimentScore: 73, complianceScore: 89, resolutionRate: 81 },
     ],
+    audioAnalyses: [],
   },
   {
     agentId: 'agent004',
@@ -88,6 +92,7 @@ const mockAgents = [
       { date: '2025-03-04', sentimentScore: 67, complianceScore: 83, resolutionRate: 73 },
       { date: '2025-03-05', sentimentScore: 69, complianceScore: 86, resolutionRate: 76 },
     ],
+    audioAnalyses: [],
   },
   {
     agentId: 'agent005',
@@ -109,6 +114,7 @@ const mockAgents = [
       { date: '2025-03-04', sentimentScore: 63, complianceScore: 81, resolutionRate: 68 },
       { date: '2025-03-05', sentimentScore: 66, complianceScore: 83, resolutionRate: 71 },
     ],
+    audioAnalyses: [],
   },
 ];
 
@@ -129,7 +135,7 @@ const mockCalls = [
 // Mock data for the bar chart (active time)
 const agentData = mockAgents.map(agent => ({
   name: agent.name,
-  activeTime: agent.callDuration / 3600, // Convert seconds to hours
+  activeTime: agent.callDuration / 3600,
 }));
 
 const CustomTooltip = ({ active, payload, label }) => {
@@ -182,11 +188,150 @@ const CallCard = ({ call }) => {
   );
 };
 
+// Analysis Result Component
+const AnalysisResult = ({ analysis }) => {
+  return (
+    <div className="bg-white rounded-lg shadow-md p-4 mt-4">
+      <h4 className="text-base font-medium text-gray-900 mb-2">Audio Analysis Results</h4>
+      <p className="text-sm text-gray-700"><strong>Agent:</strong> {analysis.agentName} (ID: {analysis.agentId})</p>
+      <p className="text-sm text-gray-700"><strong>Duration:</strong> {analysis.total_duration} sec</p>
+      <p className="text-sm text-gray-700"><strong>Long Pauses:</strong> {JSON.stringify(analysis.long_pauses)}</p>
+      <p className="text-sm text-gray-700"><strong>RMS:</strong> {analysis.rms}</p>
+      <p className="text-sm text-gray-700"><strong>SNR:</strong> {analysis.snr}</p>
+      <p className="text-sm text-gray-700"><strong>Hold Time:</strong> {analysis.hold_time} sec</p>
+      <p className="text-sm text-gray-700"><strong>Call Start Time:</strong> {analysis.call_start_time}</p>
+      <p className="text-sm text-gray-700"><strong>Call End Time:</strong> {analysis.call_end_time}</p>
+      <p className="text-sm text-gray-700"><strong>Transcript:</strong> {analysis.transcript}</p>
+      
+      {/* Render specific fields from analysis.analysis */}
+      <div className="text-sm text-gray-700">
+        <strong>Analysis:</strong>
+        <ul className="list-disc pl-5">
+          <li><strong>Sentiment Score:</strong> {analysis.analysis.sentiment_score}%</li>
+          <li><strong>Call Resolution:</strong> {analysis.analysis.call_resolution}</li>
+          <li><strong>Topics Discussed:</strong> {analysis.analysis.topics_discussed}</li>
+          <li><strong>Compliance Score:</strong> {analysis.analysis.compliance_score}%</li>
+          <li><strong>Empathy Score:</strong> {analysis.analysis.empathy_score}%</li>
+          <li><strong>Cuss Word Detection:</strong> {analysis.analysis.cuss_word_detection || 'None'}</li>
+          <li><strong>Customer Satisfaction:</strong> {analysis.analysis.customer_satisfaction || 'N/A'}</li>
+        </ul>
+      </div>
+
+      <p className="text-sm text-gray-700"><strong>Analyzed At:</strong> {new Date(analysis.analyzedAt).toLocaleString()}</p>
+    </div>
+  );
+};
+
 // Detailed Agent View Component
-const AgentDetails = ({ agent, onBack, onToggleActive }) => {
+const AgentDetails = ({ agent, onBack, onToggleActive, setAgents }) => {
   const [showRecentCalls, setShowRecentCalls] = useState(false);
+  const [audioFile, setAudioFile] = useState<File | null>(null);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [analysisResult, setAnalysisResult] = useState<any>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null); // State for PDF URL
+  const audioRef = useRef<HTMLAudioElement>(null);
   const agentCalls = mockCalls.filter(call => call.agentId === agent.agentId);
-  const recentCalls = agentCalls.slice(0, 3); // Show last 3 calls as recent
+  const recentCalls = agentCalls.slice(0, 3);
+
+  const handleAudioUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setAudioFile(file);
+      setAudioUrl(URL.createObjectURL(file));
+      setAnalysisResult(null);
+      setPdfUrl(null); // Reset PDF URL when a new file is uploaded
+    }
+  };
+
+  const handlePlay = () => {
+    if (audioRef.current) {
+      audioRef.current.play();
+    }
+  };
+
+  const handleAnalyze = async () => {
+    if (!audioFile) {
+      alert('Please upload an audio file first.');
+      return;
+    }
+
+    setIsAnalyzing(true);
+    const formData = new FormData();
+    formData.append('file', audioFile);
+
+    try {
+      // Step 1: Analyze the audio
+      const response = await axios.post('https://1b08-152-58-47-159.ngrok-free.app/analyze_audio', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      console.log('Audio analysis response:', response);
+      const analysisData = {
+        ...(typeof response.data === 'object' ? response.data : {}),
+        agentId: agent.agentId,
+        agentName: agent.name,
+        audioFileName: audioFile.name,
+        analyzedAt: new Date().toISOString(),
+      };
+
+      setAnalysisResult(analysisData);
+
+      // Update agents state with analysis
+      setAgents((prevAgents: any[]) =>
+        prevAgents.map(a =>
+          a.agentId === agent.agentId
+            ? { ...a, audioAnalyses: [...(a.audioAnalyses || []), analysisData] }
+            : a
+        )
+      );
+      
+      console.log('Analysis stored for agent:', agent.name, analysisData);
+
+      // Step 2: Generate PDF report
+      const pdfResponse = await axios.post('https://1b08-152-58-47-159.ngrok-free.app/generate_pdf', analysisData, {
+        responseType: 'blob', // Expect binary PDF response
+      });
+
+      // Create a Blob and URL for the PDF
+      const pdfBlob = new Blob([pdfResponse.data], { type: 'application/pdf' });
+      const pdfUrl = URL.createObjectURL(pdfBlob);
+      setPdfUrl(pdfUrl);
+
+    } catch (error) {
+      console.error('Audio analysis or PDF generation failed:', error);
+      if (axios.isAxiosError(error)) {
+        if (error.response) {
+          alert(`Failed: ${error.response.data.message || 'Server error'}`);
+        } else if (error.request) {
+          alert('Failed: No response from server. Please check your network connection.');
+        } else {
+          alert(`Failed: ${error.message}`);
+        }
+      } else {
+        alert('Failed: An unexpected error occurred.');
+      }
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  const handleDownloadPdf = () => {
+    if (pdfUrl) {
+      const link = document.createElement('a');
+      link.href = pdfUrl;
+      link.download = `Analysis_Report_${agent.agentId}_${new Date().toISOString().split('T')[0]}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      // Optional: Clean up the URL after download
+      URL.revokeObjectURL(pdfUrl);
+      setPdfUrl(null);
+    } else {
+      alert('No PDF available to download. Please analyze an audio file first.');
+    }
+  };
 
   return (
     <div>
@@ -229,6 +374,48 @@ const AgentDetails = ({ agent, onBack, onToggleActive }) => {
         </div>
       </div>
 
+      {/* Audio Upload and Analysis */}
+      <div className="mb-8">
+        <h4 className="text-base font-medium text-gray-900 mb-4">Upload and Analyze Audio</h4>
+        <div className="bg-white rounded-lg shadow-md p-4">
+          <input
+            type="file"
+            accept="audio/*"
+            onChange={handleAudioUpload}
+            className="mb-4 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+          />
+          {audioUrl && (
+            <div className="mb-4">
+              <audio ref={audioRef} src={audioUrl} controls className="hidden" />
+              <button
+                onClick={handlePlay}
+                className="px-4 py-2 text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+              >
+                Play
+              </button>
+            </div>
+          )}
+          <div className="flex space-x-4">
+            <button
+              onClick={handleAnalyze}
+              disabled={isAnalyzing || !audioFile}
+              className={`px-4 py-2 text-sm font-medium rounded-md text-white ${isAnalyzing || !audioFile ? 'bg-gray-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'} focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500`}
+            >
+              {isAnalyzing ? 'Analyzing...' : 'Analyze'}
+            </button>
+            {pdfUrl && (
+              <button
+                onClick={handleDownloadPdf}
+                className="px-4 py-2 text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                Download PDF Report
+              </button>
+            )}
+          </div>
+          {analysisResult && <AnalysisResult analysis={analysisResult} />}
+        </div>
+      </div>
+
       {/* All Calls */}
       <div className="mb-8">
         <h4 className="text-base font-medium text-gray-900 mb-4">All Calls</h4>
@@ -242,7 +429,7 @@ const AgentDetails = ({ agent, onBack, onToggleActive }) => {
       {/* Recent Calls */}
       <div className="mb-8">
         <h4
-          className="text-base font-medium text-gray-900 mb-4 cursor-pointer hover:text-indigo-600"
+          className="text-base font-medium text-gray-900 mb-4 cursor-pointer hover:text-indig o-600"
           onClick={() => setShowRecentCalls(!showRecentCalls)}
         >
           Recent Calls {showRecentCalls ? '(Hide)' : '(Show)'}
@@ -278,9 +465,9 @@ const AgentDetails = ({ agent, onBack, onToggleActive }) => {
 
 const ActiveAgentsPage = () => {
   const [agents, setAgents] = useState(mockAgents);
-  const [selectedAgent, setSelectedAgent] = useState(null);
+  const [selectedAgent, setSelectedAgent] = useState<any>(null);
 
-  const handleAgentClick = (agent) => {
+  const handleAgentClick = (agent: any) => {
     setSelectedAgent(agent);
   };
 
@@ -288,7 +475,7 @@ const ActiveAgentsPage = () => {
     setSelectedAgent(null);
   };
 
-  const handleToggleActive = (agentId) => {
+  const handleToggleActive = (agentId: string) => {
     setAgents(agents.map(agent =>
       agent.agentId === agentId ? { ...agent, isActive: !agent.isActive } : agent
     ));
@@ -315,7 +502,12 @@ const ActiveAgentsPage = () => {
           </div>
 
           {selectedAgent ? (
-            <AgentDetails agent={selectedAgent} onBack={handleBack} onToggleActive={handleToggleActive} />
+            <AgentDetails
+              agent={selectedAgent}
+              onBack={handleBack}
+              onToggleActive={handleToggleActive}
+              setAgents={setAgents}
+            />
           ) : (
             <>
               {/* Agent Cards Grid */}
@@ -357,7 +549,7 @@ const ActiveAgentsPage = () => {
                 </div>
               </div>
 
-              {/* Active Time Bar Chart (moved to bottom) */}
+              {/* Active Time Bar Chart */}
               <div className="mt-8">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Active Time Overview</h3>
                 <div className="h-96">

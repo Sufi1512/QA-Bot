@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Users,
@@ -9,8 +9,8 @@ import {
   ThumbsUp,
   HelpCircle,
   MessageCircle,
-  AlertOctagon,
   AlertTriangle,
+  AlertOctagon,
 } from 'lucide-react';
 import {
   LineChart,
@@ -28,82 +28,74 @@ import {
   Radar,
 } from 'recharts';
 
-// Define props type
-interface DashboardProps {
-  metrics: {
-    activeAgents: number;
-    totalCalls: number;
-    avgSentiment: number;
-    complianceScore: number;
-    avgHandleTime: string;
-    resolutionRate: number;
-  };
-  timeRange: string;
-  setTimeRange: (value: string) => void;
-}
-
-// Mock Data
-const topQueries = [
-  { query: "Password reset process", count: 245, category: "Account Access", trend: 'up' },
-  { query: "Billing cycle questions", count: 198, category: "Billing", trend: 'stable' },
-  { query: "Service upgrade options", count: 156, category: "Product", trend: 'up' },
-  { query: "Mobile app sync issues", count: 134, category: "Technical", trend: 'down' },
-  { query: "Subscription cancellation", count: 112, category: "Account Management", trend: 'stable' },
-];
-
-const customerTopics = [
-  { topic: "Account Security", percentage: 35, sentiment: 'neutral' },
-  { topic: "Mobile Experience", percentage: 28, sentiment: 'negative' },
-  { topic: "Customer Support", percentage: 22, sentiment: 'positive' },
-  { topic: "Product Features", percentage: 15, sentiment: 'positive' },
-];
-
-const urgentIssues = [
-  { issue: "Mobile App Crash", affected: 127, status: "Under Investigation" },
-  { issue: "Payment Gateway Error", affected: 89, status: "Resolved" },
-  { issue: "Login Authentication", affected: 45, status: "In Progress" },
-];
-
-const sentimentData = [
-  { time: '0:00', sentiment: 50, baseline: 50 },
-  { time: '1:00', sentiment: 45, baseline: 50 },
-  { time: '2:00', sentiment: 30, baseline: 50 },
-  { time: '3:00', sentiment: 20, baseline: 50 },
-  { time: '4:00', sentiment: 35, baseline: 50 },
-  { time: '5:00', sentiment: 60, baseline: 50 },
-  { time: '6:00', sentiment: 75, baseline: 50 },
-];
-
-const agentPerformance = {
-  name: "John Smith",
-  sentimentScore: 85,
-  resolutionRate: 92,
-  complianceScore: 98,
-  empathyScore: 88,
-  clarityScore: 90,
-  efficiency: 87,
+// Add mock data for development
+const MOCK_DATA = {
+  queries: [
+    { query: "Product Status", category: "Support", count: 25, trend: "up" },
+    { query: "Billing Issue", category: "Billing", count: 18, trend: "down" }
+  ],
+  topics: [
+    { topic: "Service Quality", sentiment: "positive", percentage: 75 },
+    { topic: "Response Time", sentiment: "neutral", percentage: 60 }
+  ],
+  issues: [
+    { issue: "System Outage", affected: 150, status: "In Progress" },
+    { issue: "Login Issues", affected: 75, status: "Resolved" }
+  ],
+  sentiment: [
+    { time: "0min", sentiment: 75, baseline: 70 },
+    { time: "5min", sentiment: 80, baseline: 70 }
+  ],
+  performance: {
+    sentimentScore: 85,
+    resolutionRate: 90,
+    complianceScore: 95,
+    empathyScore: 88,
+    clarityScore: 92,
+    efficiency: 87
+  }
 };
 
-const radarData = [
-  { metric: 'Sentiment', value: agentPerformance.sentimentScore },
-  { metric: 'Resolution', value: agentPerformance.resolutionRate },
-  { metric: 'Compliance', value: agentPerformance.complianceScore },
-  { metric: 'Empathy', value: agentPerformance.empathyScore },
-  { metric: 'Clarity', value: agentPerformance.clarityScore },
-  { metric: 'Efficiency', value: agentPerformance.efficiency },
-];
+// Update API configuration
+const API_CONFIG = {
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001',
+  endpoints: {
+    queries: '/v1/analytics/queries',
+    topics: '/v1/analytics/topics',
+    issues: '/v1/analytics/issues',
+    sentiment: '/v1/analytics/sentiment',
+    performance: '/v1/agents/performance'
+  },
+  timeout: 10000,
+  retryAttempts: 3,
+  retryDelay: 1000,
+  useMockData: import.meta.env.DEV // Use mock data in development
+};
 
-// StatCard Component
-function StatCard({ title, value, icon, trend, color, linkTo }: {
+// Add API response types
+interface APIResponse<T> {
+  data: T;
+  status: number;
+  message?: string;
+}
+
+// Define props interface for StatCard
+interface StatCardProps {
   title: string;
   value: string;
   icon: React.ReactNode;
-  trend: string;
+  trend: string;  
   color: string;
   linkTo: string;
-}) {
+}
+
+// StatCard Component
+function StatCard({ title, value, icon, trend, color, linkTo }: StatCardProps) {
   return (
-    <Link to={linkTo} className={`bg-white rounded-lg shadow-md p-6 block transform transition-transform hover:scale-105 hover:shadow-lg ${color}`}>
+    <Link
+      to={linkTo}
+      className={`bg-white rounded-lg shadow-md p-6 block transform transition-transform hover:scale-105 hover:shadow-lg ${color}`}
+    >
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-3">
           {icon}
@@ -173,7 +165,192 @@ function AlertCard({ type, message, agent, time }: {
   );
 }
 
+interface DashboardProps {
+  metrics: {
+    activeAgents: number;
+    totalCalls: number;
+    avgSentiment: number;
+    complianceScore: number;
+    avgHandleTime: string;
+    resolutionRate: number;
+  };
+  timeRange: string;
+  setTimeRange: (value: string) => void;
+}
+
 const Dashboard: React.FC<DashboardProps> = ({ metrics, timeRange, setTimeRange }) => {
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [topQueries, setTopQueries] = useState<{ query: string; category: string; count: number; trend: string; }[]>([]);
+  const [customerTopics, setCustomerTopics] = useState<{ topic: string; sentiment: string; percentage: number; }[]>([]);
+  const [urgentIssues, setUrgentIssues] = useState<{ issue: string; affected: number; status: string; }[]>([]);
+  const [sentimentData, setSentimentData] = useState<{ time: string; sentiment: number; baseline: number; }[]>([]);
+  const [agentPerformance, setAgentPerformance] = useState<{
+    sentimentScore: number;
+    resolutionRate: number;
+    complianceScore: number;
+    empathyScore: number;
+    clarityScore: number;
+    efficiency: number;
+  } | null>(null);
+
+  const fetchWithRetry = async (url: string, attempts: number = API_CONFIG.retryAttempts): Promise<Response> => {
+    try {
+      const response = await fetch(`${API_CONFIG.baseURL}${url}`, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        signal: AbortSignal.timeout(API_CONFIG.timeout),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return response;
+    } catch (error) {
+      if (attempts > 1) {
+        await new Promise(resolve => setTimeout(resolve, API_CONFIG.retryDelay));
+        return fetchWithRetry(url, attempts - 1);
+      }
+      throw error;
+    }
+  };
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        // Use mock data in development mode
+        if (API_CONFIG.useMockData) {
+          console.log('Using mock data in development mode');
+          setTopQueries(MOCK_DATA.queries);
+          setCustomerTopics(MOCK_DATA.topics);
+          setUrgentIssues(MOCK_DATA.issues);
+          setSentimentData(MOCK_DATA.sentiment);
+          setAgentPerformance(MOCK_DATA.performance);
+          setIsLoading(false);
+          return;
+        }
+
+        const endpoints = [
+          API_CONFIG.endpoints.queries,
+          API_CONFIG.endpoints.topics,
+          API_CONFIG.endpoints.issues,
+          API_CONFIG.endpoints.sentiment,
+          API_CONFIG.endpoints.performance,
+        ];
+
+        console.log('Fetching data from endpoints:', endpoints);
+
+        const responses = await Promise.all(
+          endpoints.map(endpoint => {
+            console.log('Fetching:', `${API_CONFIG.baseURL}${endpoint}`);
+            return fetchWithRetry(endpoint);
+          })
+        );
+
+        const [
+          queriesData,
+          topicsData,
+          issuesData,
+          sentimentData,
+          agentData
+        ] = await Promise.all(
+          responses.map(async (res) => {
+            const data = await res.json();
+            if (!data || !data.data) {
+              throw new Error('Invalid data format received from server');
+            }
+            return data.data;
+          })
+        );
+
+        setTopQueries(queriesData);
+        setCustomerTopics(topicsData);
+        setUrgentIssues(issuesData);
+        setSentimentData(sentimentData);
+        setAgentPerformance(agentData);
+      } catch (err) {
+        console.error('Error fetching dashboard data:', err);
+        let errorMessage = 'Failed to load dashboard data. Please try again later.';
+        
+        if (API_CONFIG.useMockData) {
+          console.log('Falling back to mock data after error');
+          setTopQueries(MOCK_DATA.queries);
+          setCustomerTopics(MOCK_DATA.topics);
+          setUrgentIssues(MOCK_DATA.issues);
+          setSentimentData(MOCK_DATA.sentiment);
+          setAgentPerformance(MOCK_DATA.performance);
+          setIsLoading(false);
+          return;
+        }
+        
+        if (err instanceof TypeError && err.message.includes('NetworkError')) {
+          errorMessage = 'Network error. Please check your internet connection.';
+        } else if (err instanceof Error && err.message.includes('timeout')) {
+          errorMessage = 'Request timed out. Please try again.';
+        } else if (err instanceof Error && err.message.includes('Invalid data format')) {
+          errorMessage = 'Server returned invalid data. Please contact support.';
+        }
+        
+        setError(errorMessage);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [timeRange]); // Added timeRange as dependency to refresh data when it changes
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading dashboard data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center text-red-600">
+          <AlertOctagon className="h-12 w-12 mx-auto mb-4" />
+          <p>{error}</p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!agentPerformance || !topQueries.length || !customerTopics.length) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center text-gray-600">
+          <p>No data available</p>
+        </div>
+      </div>
+    );
+  }
+
+  const radarData = [
+    { metric: 'Sentiment', value: agentPerformance.sentimentScore },
+    { metric: 'Resolution', value: agentPerformance.resolutionRate },
+    { metric: 'Compliance', value: agentPerformance.complianceScore },
+    { metric: 'Empathy', value: agentPerformance.empathyScore },
+    { metric: 'Clarity', value: agentPerformance.clarityScore },
+    { metric: 'Efficiency', value: agentPerformance.efficiency },
+  ];
+
   return (
     <div className="space-y-6">
       {/* Analytics Summary */}
