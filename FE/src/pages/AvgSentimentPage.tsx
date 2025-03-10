@@ -15,15 +15,14 @@ const AvgSentimentPage = () => {
   useEffect(() => {
     const fetchSentimentData = async () => {
       try {
-        const response = await fetch('/api/sentiments');
-        const data = await response.json();
-
+        const response = await fetch('http://localhost:5001/api/sentiments');
         if (!response.ok) {
-          throw new Error(data.message || `HTTP error! status: ${response.status}`);
+          throw new Error('Failed to fetch sentiment data');
         }
-
-        // Backend now guarantees consistent time format
-        setSentimentData(data);
+        const data = await response.json();
+        setSentimentData(data.sort((a: SentimentData, b: SentimentData) => 
+          a.time.localeCompare(b.time)
+        ));
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to fetch sentiment data');
       } finally {
@@ -32,6 +31,9 @@ const AvgSentimentPage = () => {
     };
 
     fetchSentimentData();
+    // Refresh data every 5 minutes
+    const interval = setInterval(fetchSentimentData, 5 * 60 * 1000);
+    return () => clearInterval(interval);
   }, []);
 
   interface CustomTooltipProps {

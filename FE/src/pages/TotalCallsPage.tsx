@@ -1,217 +1,52 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import BackButton from '../components/BackButton';
+import { CALLS_ENDPOINT } from '../constants/api';
 
-// Mock Data for Calls (based on callSchema, removed duration field)
-const mockCalls = [
-  {
-    callId: 'call001',
-    agentId: 'agent001',
-    customerId: 'cust001',
-    startTime: new Date('2025-03-08T00:00:00Z'),
-    endTime: new Date('2025-03-08T00:05:00Z'),
-    transcript: 'Customer asked about billing...',
-    sentimentScore: 85,
-    complianceScore: 95,
-    resolutionStatus: 'Resolved',
-    metadata: { keywords: ['billing'], topics: ['payment'], responseTime: 30 },
-    companyId: 'comp001',
+const API_CONFIG = {
+  headers: {
+    'Content-Type': 'application/json',
+    // Add any other required headers here
   },
-  {
-    callId: 'call002',
-    agentId: 'agent002',
-    customerId: 'cust002',
-    startTime: new Date('2025-03-08T00:15:00Z'),
-    endTime: new Date('2025-03-08T00:20:00Z'),
-    transcript: 'Customer reported an issue...',
-    sentimentScore: 78,
-    complianceScore: 92,
-    resolutionStatus: 'In Progress',
-    metadata: { keywords: ['issue'], topics: ['technical'], responseTime: 45 },
-    companyId: 'comp001',
-  },
-  {
-    callId: 'call003',
-    agentId: 'agent003',
-    customerId: 'cust003',
-    startTime: new Date('2025-03-08T01:00:00Z'),
-    endTime: new Date('2025-03-08T01:04:48Z'),
-    transcript: 'Customer requested upgrade...',
-    sentimentScore: 72,
-    complianceScore: 88,
-    resolutionStatus: 'Resolved',
-    metadata: { keywords: ['upgrade'], topics: ['product'], responseTime: 20 },
-    companyId: 'comp001',
-  },
-  {
-    callId: 'call004',
-    agentId: 'agent004',
-    customerId: 'cust004',
-    startTime: new Date('2025-03-08T01:30:00Z'),
-    endTime: new Date('2025-03-08T01:35:12Z'),
-    transcript: 'Customer canceled subscription...',
-    sentimentScore: 68,
-    complianceScore: 85,
-    resolutionStatus: 'Resolved',
-    metadata: { keywords: ['cancel'], topics: ['account'], responseTime: 25 },
-    companyId: 'comp001',
-  },
-  {
-    callId: 'call005',
-    agentId: 'agent005',
-    customerId: 'cust005',
-    startTime: new Date('2025-03-08T02:00:00Z'),
-    endTime: new Date('2025-03-08T02:05:00Z'),
-    transcript: 'Customer asked for refund...',
-    sentimentScore: 65,
-    complianceScore: 82,
-    resolutionStatus: 'In Progress',
-    metadata: { keywords: ['refund'], topics: ['billing'], responseTime: 35 },
-    companyId: 'comp001',
-  },
-  {
-    callId: 'call006',
-    agentId: 'agent001',
-    customerId: 'cust006',
-    startTime: new Date('2025-03-08T02:15:00Z'),
-    endTime: new Date('2025-03-08T02:20:18Z'),
-    transcript: 'Customer had a question...',
-    sentimentScore: 80,
-    complianceScore: 90,
-    resolutionStatus: 'Resolved',
-    metadata: { keywords: ['question'], topics: ['general'], responseTime: 15 },
-    companyId: 'comp001',
-  },
-  {
-    callId: 'call007',
-    agentId: 'agent002',
-    customerId: 'cust007',
-    startTime: new Date('2025-03-08T03:00:00Z'),
-    endTime: new Date('2025-03-08T03:04:12Z'),
-    transcript: 'Customer needed assistance...',
-    sentimentScore: 82,
-    complianceScore: 91,
-    resolutionStatus: 'Resolved',
-    metadata: { keywords: ['assistance'], topics: ['support'], responseTime: 40 },
-    companyId: 'comp001',
-  },
-  {
-    callId: 'call008',
-    agentId: 'agent003',
-    customerId: 'cust008',
-    startTime: new Date('2025-03-08T03:30:00Z'),
-    endTime: new Date('2025-03-08T03:34:24Z'),
-    transcript: 'Customer reported a bug...',
-    sentimentScore: 70,
-    complianceScore: 87,
-    resolutionStatus: 'In Progress',
-    metadata: { keywords: ['bug'], topics: ['technical'], responseTime: 50 },
-    companyId: 'comp001',
-  },
-  {
-    callId: 'call009',
-    agentId: 'agent004',
-    customerId: 'cust009',
-    startTime: new Date('2025-03-08T04:00:00Z'),
-    endTime: new Date('2025-03-08T04:04:00Z'),
-    transcript: 'Customer asked about features...',
-    sentimentScore: 75,
-    complianceScore: 86,
-    resolutionStatus: 'Resolved',
-    metadata: { keywords: ['features'], topics: ['product'], responseTime: 30 },
-    companyId: 'comp001',
-  },
-  {
-    callId: 'call010',
-    agentId: 'agent005',
-    customerId: 'cust010',
-    startTime: new Date('2025-03-08T04:15:00Z'),
-    endTime: new Date('2025-03-08T04:18:06Z'),
-    transcript: 'Customer had a complaint...',
-    sentimentScore: 62,
-    complianceScore: 80,
-    resolutionStatus: 'Unresolved',
-    metadata: { keywords: ['complaint'], topics: ['support'], responseTime: 60 },
-    companyId: 'comp001',
-  },
-  {
-    callId: 'call011',
-    agentId: 'agent001',
-    customerId: 'cust011',
-    startTime: new Date('2025-03-08T05:00:00Z'),
-    endTime: new Date('2025-03-08T05:04:18Z'),
-    transcript: 'Customer needed help...',
-    sentimentScore: 88,
-    complianceScore: 96,
-    resolutionStatus: 'Resolved',
-    metadata: { keywords: ['help'], topics: ['support'], responseTime: 25 },
-    companyId: 'comp001',
-  },
-  {
-    callId: 'call012',
-    agentId: 'agent002',
-    customerId: 'cust012',
-    startTime: new Date('2025-03-08T05:30:00Z'),
-    endTime: new Date('2025-03-08T05:34:24Z'),
-    transcript: 'Customer asked about pricing...',
-    sentimentScore: 80,
-    complianceScore: 93,
-    resolutionStatus: 'Resolved',
-    metadata: { keywords: ['pricing'], topics: ['billing'], responseTime: 20 },
-    companyId: 'comp001',
-  },
-  {
-    callId: 'call013',
-    agentId: 'agent003',
-    customerId: 'cust013',
-    startTime: new Date('2025-03-08T06:00:00Z'),
-    endTime: new Date('2025-03-08T06:04:06Z'),
-    transcript: 'Customer reported an error...',
-    sentimentScore: 74,
-    complianceScore: 89,
-    resolutionStatus: 'In Progress',
-    metadata: { keywords: ['error'], topics: ['technical'], responseTime: 35 },
-    companyId: 'comp001',
-  },
-  {
-    callId: 'call014',
-    agentId: 'agent004',
-    customerId: 'cust014',
-    startTime: new Date('2025-03-08T06:15:00Z'),
-    endTime: new Date('2025-03-08T06:19:12Z'),
-    transcript: 'Customer asked for a demo...',
-    sentimentScore: 78,
-    complianceScore: 87,
-    resolutionStatus: 'Resolved',
-    metadata: { keywords: ['demo'], topics: ['product'], responseTime: 15 },
-    companyId: 'comp001',
-  },
-];
-
-// Aggregate calls by hour
-const aggregateCallsByHour = (calls) => {
-  const hourlyData = {};
-  calls.forEach(call => {
-    const hour = new Date(call.startTime).getHours();
-    const timeKey = `${hour}:00`;
-    if (!hourlyData[timeKey]) {
-      hourlyData[timeKey] = 0;
-    }
-    hourlyData[timeKey] += 1;
-  });
-
-  // Convert to array and fill missing hours
-  const result = [];
-  for (let i = 0; i < 7; i++) {
-    const time = `${i}:00`;
-    result.push({ time, calls: hourlyData[time] || 0 });
-  }
-  return result;
+  credentials: 'include' as RequestCredentials
 };
 
-const callData = aggregateCallsByHour(mockCalls);
+interface Call {
+  callId: string;
+  agentId: string;
+  customerId: string;
+  startTime: string; // ISO 8601 format
+  endTime: string; // ISO 8601 format
+  transcript: string;
+  sentimentScore: number;
+  complianceScore: number;
+  resolutionStatus: string;
+  metadata: {
+    keywords: string[];
+    topics: string[];
+    responseTime: number;
+  };
+  companyId: string;
+}
 
-const CustomTooltip = ({ active, payload, label }) => {
+interface CallData {
+  time: string;
+  calls: number;
+}
+
+interface TooltipProps {
+  active?: boolean;
+  payload?: Array<{ value: number }>;
+  label?: string;
+}
+
+// Move outside of component
+const formatTimeString = (hour: number): string => {
+  const paddedHour = hour.toString().padStart(2, '0');
+  return `${paddedHour}:00`;
+};
+
+const CustomTooltip = ({ active, payload, label }: TooltipProps): JSX.Element | null => {
   if (active && payload && payload.length) {
     return (
       <div className="bg-white p-3 border rounded-lg shadow-md">
@@ -223,11 +58,10 @@ const CustomTooltip = ({ active, payload, label }) => {
   return null;
 };
 
-// Call Card Component with dynamic duration calculation
-const CallCard = ({ call }) => {
-  const calculateDuration = (start, end) => {
+const CallCard = ({ call }: { call: Call }): JSX.Element => {
+  const calculateDuration = (start: string, end: string) => {
     if (!end) return 'N/A';
-    const diffMs = new Date(end) - new Date(start);
+    const diffMs = new Date(end).getTime() - new Date(start).getTime();
     const minutes = diffMs / 1000 / 60; // Convert milliseconds to minutes
     return minutes.toFixed(1);
   };
@@ -250,11 +84,90 @@ const CallCard = ({ call }) => {
   );
 };
 
-const TotalCallsPage = () => {
+const TotalCallsPage = (): JSX.Element => {
+  const [calls, setCalls] = useState<Call[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [callData, setCallData] = useState<CallData[]>([]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchCalls = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch(CALLS_ENDPOINT, {
+          ...API_CONFIG,
+          method: 'GET'
+        });
+
+        if (!response.ok) {
+          console.error('Response status:', response.status);
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        if (isMounted && Array.isArray(data)) {
+          setCalls(data);
+          const aggregatedData = aggregateCallsByHour(data);
+          setCallData(aggregatedData);
+        }
+      } catch (err) {
+        console.error('Fetch error:', err);
+        if (isMounted) {
+          setError(err instanceof Error ? err.message : 'Failed to fetch calls');
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchCalls();
+    return () => { isMounted = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!calls || !Array.isArray(calls)) return;
+    
+    const aggregatedData = aggregateCallsByHour(calls);
+    setCallData(aggregatedData);
+  }, [calls]);
+
+  // Aggregate calls by hour
+  const aggregateCallsByHour = (calls: Call[]): CallData[] => {
+    if (!calls?.length) return [];
+    
+    const hourlyData: Record<string, number> = {};
+    calls.forEach(call => {
+      if (!call?.startTime) return;
+      
+      const date = new Date(call.startTime);
+      if (date.toString() === 'Invalid Date') return;
+      
+      const hour = date.getHours();
+      const timeKey = formatTimeString(hour);
+      hourlyData[timeKey] = (hourlyData[timeKey] || 0) + 1;
+    });
+
+    return Array.from({ length: 24 }, (_, i) => ({
+      time: formatTimeString(i),
+      calls: hourlyData[formatTimeString(i)] || 0
+    }));
+  };
+
+  if (loading) return <div className="min-h-screen bg-gray-100 flex items-center justify-center">Loading...</div>;
+  if (error) return <div className="min-h-screen bg-gray-100 flex items-center justify-center">Error: {error}</div>;
+  if (!calls || !Array.isArray(calls)) {
+    return <div className="min-h-screen bg-gray-100 flex items-center justify-center">No data available</div>;
+  }
+  if (!callData.length) return <div className="min-h-screen bg-gray-100 flex items-center justify-center">No calls found</div>;
+
   // Find peak and lowest call volumes
   const peakCall = callData.reduce((max, curr) => (curr.calls > max.calls ? curr : max), callData[0]);
   const lowestCall = callData.reduce((min, curr) => (curr.calls < min.calls ? curr : min), callData[0]);
-  const totalCalls = mockCalls.length;
+  const totalCalls = calls.length;
 
   return (
     <div className="min-h-screen bg-gray-100 py-8">
@@ -321,7 +234,7 @@ const TotalCallsPage = () => {
           <div className="mt-8">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Call Details</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-              {mockCalls.map(call => (
+              {calls.map(call => (
                 <CallCard key={call.callId} call={call} />
               ))}
             </div>

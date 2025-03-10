@@ -1,30 +1,49 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import BackButton from '../components/BackButton';
 
 const AvgHandleTimePage = () => {
-  const [calls, setCalls] = useState([]);
+  interface Call {
+    startTime: string;
+    sentimentScore: number;
+  }
+
+  const [calls, setCalls] = useState<Call[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchCalls = async () => {
       try {
-        const response = await fetch("/api/calls");
-        const contentType = response.headers.get("content-type");
+        const apiUrl = `${import.meta.env.VITE_API_BASE_URL}/api/calls`;
+        const response = await fetch(apiUrl, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          },
+          credentials: 'include' // Include if you need to handle cookies
+        });
         
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         
-        if (!contentType || !contentType.includes("application/json")) {
-          throw new TypeError("Response was not JSON");
+        let data;
+        try {
+          data = await response.json();
+        } catch {
+          throw new Error('Failed to parse JSON response');
         }
-        
-        const data = await response.json();
+
+        if (!Array.isArray(data)) {
+          throw new Error('Invalid data format: expected an array');
+        }
+
         setCalls(data);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'An error occurred');
+        console.error('Fetch error:', err);
+        setError(err instanceof Error ? err.message : 'Failed to fetch call data');
       } finally {
         setLoading(false);
       }
@@ -37,7 +56,7 @@ const AvgHandleTimePage = () => {
   if (error) return <div>Error: {error}</div>;
 
   // Aggregate sentiment data by hour to match handleTimeData
-  const sentimentDataByHour = calls.reduce((acc, call) => {
+  const sentimentDataByHour = calls.reduce((acc: { [key: string]: { sentimentScore: number; count: number } }, call) => {
     const hour = new Date(call.startTime).getHours();
     const hourKey = `${hour}:00`;
     if (!acc[hourKey]) {
